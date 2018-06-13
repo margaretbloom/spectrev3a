@@ -4,33 +4,10 @@ DEFAULT REL
 GLOBAL main
 
 EXTERN printf
-EXTERN signal
 EXTERN exit
 
 ;Space between lines in the buffer
-%define GAP (0)
-
-%macro WARMUP 0
-
- push rbx
- push rax
- mov eax, 1000000
-
- %%loop:
-  vaddps ymm0, ymm0, ymm1
-  vsqrtps ymm3, ymm3
-  imul rbx, rbx
-  vaddps ymm2, ymm2, ymm4
-  vsqrtps ymm5, ymm5
-  imul rbx, rbx
- 
-  dec eax
- jnz %%loop
-
- pop rax
- pop rbx
-
-%endmacro
+%define GAP 0
 
 SECTION .bss ALIGN=4096
 
@@ -100,7 +77,6 @@ profile:
  mov esi, 256			;How many lines to test
  lea r8, [timings_data]		;Pointer to timings results
 
- ;mov DWORD [buffer + (1+GAP)*64 * 0], 1
 
  mfence				;I'm pretty sure this is useless, but I included it to rule out ..
 				;.. silly, hard to debug, scenarios
@@ -145,8 +121,7 @@ profile:
 show_results:
  lea rbx, [timings_data]	;Pointer to the timings
  xor r12, r12			;Counter (up to 256)
- mov r10d, 78			;Used to compute the color 
-
+ 
 .print_line:
 
  ;Format the output
@@ -169,14 +144,16 @@ show_results:
   mov esi, DWORD [rbx]		;Timing value
 
   ;Compute the color
+  mov r10d, 60			;Used to compute the color 
   mov eax, esi
   xor edx, edx
   div r10d			;eax = Timing value / 78
 
   ;Update the color 
 
-  mov edx, '6'
+  
   add al, '0'
+  mov edx, '5'
   cmp eax, edx
   cmova eax, edx
   mov BYTE [strTiming.importance], al
@@ -222,7 +199,7 @@ main:
 
  ;Flush all the lines of the buffer
  call flush_all
- 
+
  ;Test the access times
  call profile
 
