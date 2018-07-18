@@ -7,7 +7,7 @@ EXTERN printf
 EXTERN exit
 
 ;Space between lines in the buffer
-%define GAP 0
+%define GAP 63
 
 SECTION .bss ALIGN=4096
 
@@ -15,6 +15,7 @@ SECTION .bss ALIGN=4096
 
  buffer: 	resb 256 * (1 + GAP) * 64	
 
+ deceptiveBuffer resb 4096
 
 SECTION .data
 
@@ -41,15 +42,19 @@ SECTION .text
 ;
 ;
 
+;THIS HAPPENS TO BE THE SOURCE OF THE PROBLEM, APPARENTELY EVEN INVALIDATION REQUESTS TRIGGERS THE L3 PREFETCHER?
+
 flush_all:
  lea rdi, [buffer]	;Start pointer
  mov esi, 256		;How many lines to flush
  
 .flush_loop:
-  lfence		;Prevent the previous clflush to be reordered after the load
-  mov eax, [rdi]	;Touch the page
-  lfence		;Prevent the current clflush to be reordered before the load
+  ;lfence		;Prevent the previous clflush to be reordered after the load
+  ;mov eax, [rdi]	;Touch the page
+  ;lfence		;Prevent the current clflush to be reordered before the load
   
+  ;The line above happens to be the source of the problem, it triggers the L3 prefetcher
+
   clflush  [rdi]	;Flush a line
   add rdi, (1 + GAP)*64	;Move to the next line
 
@@ -82,6 +87,9 @@ profile:
 				;.. silly, hard to debug, scenarios
 
 .profile: 
+  lea rbx, [deceptiveBuffer]
+  lea rbx, [rbx + rsi*8]
+
   mfence
   rdtscp
   lfence			;Read the TSC in-order (ignoring stores global visibility)
@@ -198,7 +206,10 @@ jmp .print_timing
 main:
 
  ;Flush all the lines of the buffer
- call flush_all
+ ;call flush_all
+
+ lea rdi, [buffer]
+ mov edi, DWORD [rdi+(1+GAP)*64*5]
 
  ;Test the access times
  call profile
